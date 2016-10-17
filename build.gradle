@@ -1,0 +1,279 @@
+
+import org.gradle.logging.internal.*
+
+repositories {
+	mavenLocal()
+	//maven {
+	//	credentials {
+	//		username nexusUN
+	//		password nexusPW
+	//	}
+	//	url (nexusURL)
+	//}
+	jcenter()
+	mavenCentral()
+	
+
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+	
+buildscript {
+	repositories {
+		mavenLocal()
+		//maven {
+		//	credentials {
+		//		username nexusUN
+		//		password nexusPW
+		//	}
+		//	url (nexusURL)
+		//}
+		jcenter()
+		mavenCentral()
+	}
+
+	dependencies 
+	{ 
+		classpath('net.serenity-bdd:serenity-gradle-plugin:'+serenityVersion)
+	}
+}
+
+apply plugin: 'net.serenity-bdd.aggregator'
+	
+	
+//configurations {
+//	testCompile{
+//		exclude module: 'cglib:cglib-nodep:2.2'
+//	}
+//	
+//}
+
+		
+		
+dependencies {
+	testCompile fileTree(dir: 'libs', include: ['*.jar'])
+	testCompile 'com.jayway.restassured:rest-assured:2.7.0'
+	testCompile 'net.serenity-bdd:serenity-rest-assured:'+serenityVersion
+	testCompile 'net.serenity-bdd:serenity-junit:'+serenityVersion
+	testCompile 'net.serenity-bdd:serenity-core:'+serenityVersion
+	testCompile 'net.serenity-bdd:serenity-report-resources:'+serenityVersion
+	testCompile 'net.serenity-bdd:serenity-cucumber:1.1.2'
+	testCompile 'info.cukes:cucumber-junit:1.2.4'
+	testCompile 'info.cukes:cucumber-java:1.2.4'
+	//testCompile 'org.jbehave:jbehave-core:4.0.4'
+	//testCompile 'de.codecentric:jbehave-junit-runner:1.1.0'
+	//testCompile 'net.serenity-bdd:serenity-jbehave:1.1.0'
+	testCompile 'junit:junit:4.12'
+	testCompile 'org.slf4j:slf4j-simple:1.7.12'
+	testCompile 'org.slf4j:slf4j-api:1.7.12'
+	testCompile 'org.assertj:assertj-core:3.1.0'
+	testCompile 'org.hamcrest:hamcrest-all:1.3'
+	testCompile 'com.jayway.restassured:json-path:2.7.0'
+	testCompile 'com.jayway.restassured:xml-path:2.7.0'
+	testCompile 'com.jayway.restassured:json-schema-validator:2.7.0'
+	//testCompile 'com.jayway.restassured:spring-mock-mvc:2.5.0'
+	//testCompile 'com.oracle:ojdbc6:11.2.0.3.0'
+	testCompile 'org.springframework:spring-core:4.2.5.RELEASE'
+	testCompile 'com.thoughtworks.paranamer:paranamer:2.6'
+	testCompile 'commons-lang:commons-lang:2.6'
+	testCompile 'org.codehaus.plexus:plexus-utils:3.0.22'
+	testCompile 'org.jsoup:jsoup:1.8.3'
+	//testCompile 'io.appium:java-client:2.1.0'
+	//testCompile 'com.google.inject:guice:3.0'
+	testCompile 'org.freemarker:freemarker:2.3.21'
+	testCompile 'org.asciidoctor:asciidoctor-java-integration:0.1.3'
+	//testCompile 'com.googlecode.lambdaj:lambdaj:2.3.3'
+	testCompile 'org.codehaus.groovy:groovy-all:2.4.4'
+
+	testCompile 'com.typesafe:config:1.3.0'
+	testCompile 'com.thoughtworks.xstream:xstream:1.4.8'
+	//testCompile 'com.opera:operadriver:1.5'
+	//testCompile 'com.codeborne:phantomjsdriver:1.2.1'
+	testCompile 'org.fluentlenium:fluentlenium-core:0.10.2'
+	testCompile 'com.jayway.jsonpath:json-path:2.0.0'
+	testCompile 'com.github.groovy-wslite:groovy-wslite:1.1.2'
+	testCompile 'joda-time:joda-time:2.9.2'
+	testCompile 'org.apache.httpcomponents:httpclient:4.5.1'
+	testCompile 'com.jayway.jsonpath:json-path:2.0.0'
+	testCompile 'org.glassfish:javax.json:1.0.4'
+
+}
+
+gradle.startParameter.continueOnFailure = true
+
+test 
+{
+	systemProperty "storyFilter", System.getProperty("storyFilter")
+	systemProperty "cucumber.options", System.getProperty("cucumber.options")
+	
+	doFirst{
+		
+		writePropertyDataForSerenity.execute()
+	}
+	
+	
+	
+	if (project.hasProperty('maxParallelForks'))
+		maxParallelForks = project.maxParallelForks as int
+	if (project.hasProperty('forkEvery'))
+		forkEvery = project.forkEvery as int
+		
+
+	
+	  def fileMap = new TreeMap<String, File>();
+    def redirectionMap = new TreeMap<String, String>();
+    def blacklist = new ArrayList<String>();
+    blacklist.add("net.thucydides.core.reflection.StackTraceAnalyser");
+    onOutput { descriptor, event ->
+           def messageBlacklisted = false;
+           for(String blacklistedString : blacklist) {
+                   if(event.message.contains(blacklistedString)){
+                          messageBlacklisted=true;
+                   }
+           }
+           //Gradle Test Executor 1
+           def executor = descriptor;
+           while(executor.getClassName() != null)
+           {
+                   executor = executor.getParent();
+           }
+
+           def originalKey = executor.getName();
+           def key = originalKey;
+           def redirectionMessages = [/Test Suite Started: (.*)$/]
+           for(def regex : redirectionMessages)
+           {
+                   def result = (event.message =~ regex);
+                   if(result.size()>=1)
+                   {
+                          def redirectedLocation = result[0][1];
+                          redirectionMap.put(key, redirectedLocation);
+                          logger.lifecycle("Redirecting "+key+"->"+redirectedLocation);
+                   }
+           }
+           def depth = 0;
+           while(redirectionMap.containsKey(key) && depth < 10)
+           {
+                   depth+1;
+                   key = redirectionMap.get(key);
+           }
+           //key is still gradle test executor, may as well use something more useful
+           if(key.equals(originalKey))
+           {
+                   key = descriptor.getClassName();
+           }
+           def streamName = key.replaceAll("[^a-zA-Z0-9\\._]+", "_");
+           if(!messageBlacklisted) {
+                   if(!fileMap.containsKey(streamName)) {
+                          def outputFile = createSerenityLogFile(streamName+".txt");
+                          fileMap.put(streamName, outputFile);
+                   }
+                   fileMap.get(streamName) << event.message;
+           }
+    }
+
+	if (System.getProperty('DEBUG', 'false') == 'true') {
+		jvmArgs '-Xdebug',
+		'-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=9999'
+	}
+
+	doLast{
+		removeProps.execute() 
+	}
+}
+
+/**
+ * Gradle build properties available:
+ * 
+ * -Papp.base.protocol=
+ * -Papp.base.host=
+ * -Papp.base.port=
+ * -Papp.base.basePath=
+ * -Papp.base.loginPath=
+ * -Pmetafilter=
+ * -Ptags=
+ * 
+ * -Punattended=Y - overwrites the properties below to default values specificied in gradle.properties. 
+ * If these need to be specified individulally do not use -Punattended
+ * 
+ * -Pwebdriver.remote.driver=
+ * -Pwebdriver.remote.url=
+ * -Pwebdriver.driver=
+ * -Pwebdriver.firefox.profile=
+ */
+task writePropertyDataForSerenity << {
+	
+
+	
+	if (project.hasProperty('tags')) {
+		println "Setting serenity property tags to: $tags"
+		ant.propertyfile(file: "$projectDir/serenity.properties") {
+			entry(key: "tags", value: "$tags")
+		}
+	}
+	
+	
+	if (project.hasProperty('webdriver.remote.url')) {
+		println "Setting serenity property webdriver.remote.url to: "+ project.property('webdriver.remote.url')
+		ant.propertyfile(file: "$projectDir/serenity.properties") {
+			entry(key: "webdriver.remote.url",value: project.property('webdriver.remote.url'))
+		}
+	}
+	
+	if (project.hasProperty('webdriver.remote.driver')) {
+		println "Setting serenity property webdriver.remote.driver to: "+ project.property('webdriver.remote.driver')
+		ant.propertyfile(file: "$projectDir/serenity.properties") {
+			entry( key: "webdriver.remote.driver",value: project.property('webdriver.remote.driver'))
+		}
+	}
+	
+	if (project.hasProperty('webdriver.driver')) {
+		println "Setting serenity property webdriver.driver to: "+ project.property('webdriver.driver')
+		ant.propertyfile(file: "$projectDir/serenity.properties") {
+			entry( key: "webdriver.driver",value: project.property('webdriver.driver'))
+		}
+	}
+	
+	if (project.hasProperty('webdriver.firefox.profile')) {
+		println "Setting serenity property webdriver.firefox.profile to: "+ project.property('webdriver.firefox.profile')
+		ant.propertyfile(file: "$projectDir/serenity.properties") {
+			entry( key: "webdriver.firefox.profile",value: project.property('webdriver.firefox.profile'))
+		}
+	}
+}
+
+task removeProps << 
+{
+	if ((!project.hasProperty('unattended')) || (project.property('unattended')=="N")) {
+		ant.propertyfile(file: "$projectDir/serenity.properties") {
+			entry( key: "webdriver.firefox.profile", value: "set_when_gradle_task_is_run")
+		}
+	}
+
+	//remove the date added by ant at the top of the properties file for versioning purposes
+	ant.replaceregexp(file:"$projectDir/serenity.properties", match:"^#.*\n", replace:"")
+}
+
+public void deleteFile(File f){
+    if(f.exists()) {
+        logger.lifecycle("Deleting ${f}")
+        f.delete();
+    }
+}
+
+public File createSerenityLogFile(String fileName){
+	def buildLogDir = "$projectDir/target/site/serenity/logs"
+	mkdir("${buildLogDir}")
+	def outputFile = new File("${buildLogDir}/${fileName}")
+    deleteFile(outputFile);
+    createFile(outputFile);
+    return outputFile;
+}
+
+public void createFile(File f){
+    if(!f.exists()) {
+        logger.lifecycle("Creating ${f}")
+        f.createNewFile();
+    }
+}
